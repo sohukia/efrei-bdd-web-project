@@ -1,7 +1,7 @@
 [project]
 name = "bdd-web-project"
 version = "0.1.0"
-description = "Add your description here"
+description = "Projet de base de donnée et Web Efrei RS 2026"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = []
