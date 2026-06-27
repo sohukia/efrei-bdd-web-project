@@ -5,7 +5,7 @@ services:
     restart: always
     environment:
       MYSQL_ROOT_PASSWORD: dbrootpwd
-      MYSQL_DATABASE: cinema 
+      MYSQL_DATABASE: cinema
       MYSQL_USER: user
       MYSQL_PASSWORD: userpwd
     ports:
