@@ -8,14 +8,19 @@
 1. Clone the repository
 ```bash
 git clone https://github.com/sohukia/efrei-bdd-web-project.git && cd efrei-bdd-web-project
-
 ```
-2. Install dependencies
+2. Create a virtual environment
+```bash
+uv venv
+````
+Activate the virtual environment with the command shown after.
+
+3. Install dependencies
 ```bash
 uv sync
 ```
-3. Run the local database
+
+4. Run the local database
 ```bash
 docker compose up -d
 ```
-> The database listens on port `13306`

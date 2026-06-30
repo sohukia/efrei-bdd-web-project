@@ -3,6 +3,7 @@ services:
     image: mysql:latest
     container_name: db
     restart: always
+    command: --local-infile=1
     environment:
       MYSQL_ROOT_PASSWORD: dbrootpwd
       MYSQL_DATABASE: foncier

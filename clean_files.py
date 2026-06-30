@@ -90,17 +90,13 @@ def convert_dvf_file(input_path: str, output_path: str):
   with open(input_path, mode="r", encoding="utf-8", errors="replace") as infile:
     # DVF source files use vertical bar character as delimiter
     reader = csv.DictReader(infile, delimiter="|")
-
     with open(output_path, mode="w", encoding="utf-8", newline="") as outfile:
       writer = csv.DictWriter(outfile, fieldnames=fieldnames_out, delimiter=",")
       writer.writeheader()
-
       for row in reader:
         processed_row = process_line(row)
         writer.writerow(processed_row)
 
-
-[]
 
 if __name__ == "__main__":
   convert_dvf_file("valeursfoncieres-2024.txt", "processed_valeursfoncieres-2024.csv")

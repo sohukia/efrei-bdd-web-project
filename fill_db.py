@@ -1,10 +1,21 @@
 import os
 import signal
 from threading import Event
-import psycopg
 
-# Configuration constants
-DB_DSN = "postgresql://username:password@localhost:5432/your_database"
+import mysql.connector
+
+# --------------------------------------------------------------------------
+# Configuration
+# --------------------------------------------------------------------------
+
+DB_CONFIG = {
+  "host": "127.0.0.1",
+  "user": "user",
+  "password": "userpwd",
+  "database": "foncier",
+  "allow_local_infile": True,
+}
+
 PROCESSED_CSV_DIR = "./"
 CSV_FILES = [
   "processed_valeursfoncieres-2022.csv",
@@ -23,7 +34,10 @@ def handle_sigint(signum, frame):
 
 signal.signal(signal.SIGINT, handle_sigint)
 
-# SQL Statements to initialize Target Schema
+# --------------------------------------------------------------------------
+# Schema DDL
+# --------------------------------------------------------------------------
+
 SCHEMA_DDL = """
 CREATE TABLE IF NOT EXISTS commune (
     code_commune        VARCHAR(10)  PRIMARY KEY,
@@ -31,18 +45,26 @@ CREATE TABLE IF NOT EXISTS commune (
     code_departement    VARCHAR(3),
     code_postal         VARCHAR(10)
 );
+"""
 
+SCHEMA_DDL_2 = """
 CREATE TABLE IF NOT EXISTS parcelle (
     id_parcelle         VARCHAR(20) PRIMARY KEY,
-    code_commune        VARCHAR(10) REFERENCES commune(code_commune)
+    code_commune        VARCHAR(10),
+    FOREIGN KEY (code_commune) REFERENCES commune(code_commune)
 );
+"""
 
+SCHEMA_DDL_3 = """
 CREATE TABLE IF NOT EXISTS adresse (
     id_adresse          VARCHAR(12)  PRIMARY KEY,
     adresse_numero      VARCHAR(10),
-    id_parcelle         VARCHAR(20) REFERENCES parcelle(id_parcelle)
+    id_parcelle         VARCHAR(20),
+    FOREIGN KEY (id_parcelle) REFERENCES parcelle(id_parcelle)
 );
+"""
 
+SCHEMA_DDL_4 = """
 CREATE TABLE IF NOT EXISTS mutation (
     id_mutation         VARCHAR(16)  PRIMARY KEY,
     annee               SMALLINT,
@@ -50,86 +72,93 @@ CREATE TABLE IF NOT EXISTS mutation (
     nature_mutation     VARCHAR(50),
     valeur_fonciere     NUMERIC(15,2)
 );
+"""
 
+SCHEMA_DDL_5 = """
 CREATE TABLE IF NOT EXISTS mutation_parcelle (
-    id_mutation     VARCHAR(16) REFERENCES mutation(id_mutation),
-    id_parcelle     VARCHAR(20) REFERENCES parcelle(id_parcelle),
-    PRIMARY KEY (id_mutation, id_parcelle)
+    id_mutation     VARCHAR(16),
+    id_parcelle     VARCHAR(20),
+    PRIMARY KEY (id_mutation, id_parcelle),
+    FOREIGN KEY (id_mutation) REFERENCES mutation(id_mutation),
+    FOREIGN KEY (id_parcelle) REFERENCES parcelle(id_parcelle)
 );
+"""
 
-CREATE TABLE IF NOT EXISTS local (
+SCHEMA_DDL_6 = """
+CREATE TABLE IF NOT EXISTS `local` (
     id_local                    VARCHAR(12)  PRIMARY KEY,
     type_local                  VARCHAR(30),
     surface_reelle_bati         NUMERIC(10,2),
     nombre_pieces_principales   SMALLINT,
-    id_parcelle                 VARCHAR(20) REFERENCES parcelle(id_parcelle)
+    id_parcelle                 VARCHAR(20),
+    FOREIGN KEY (id_parcelle) REFERENCES parcelle(id_parcelle)
 );
 """
 
-# SQL Statement to initialize Unindexed Staging Table
-STAGING_DDL = """
+STAGING_DDL_DROP = """
 DROP TABLE IF EXISTS staging_dvf;
-CREATE UNLOGGED TABLE staging_dvf (
-    code_commune VARCHAR, nom_commune VARCHAR, code_departement VARCHAR, code_postal VARCHAR,
-    id_parcelle VARCHAR, id_adresse VARCHAR, adresse_ TEXT, id_mutation VARCHAR,
-    annee VARCHAR, date_mutation VARCHAR, nature_mutation VARCHAR, valeur_fonciere VARCHAR,
-    id_local VARCHAR, type_local VARCHAR, surface_reelle_bati VARCHAR, nombre_pieces_principales VARCHAR
-);
 """
 
-# Relational distribution queries executing purely inside PostgreSQL storage layer
+STAGING_DDL_CREATE = """
+CREATE TABLE staging_dvf (
+    code_commune VARCHAR(255), nom_commune VARCHAR(255), code_departement VARCHAR(255), code_postal VARCHAR(255),
+    id_parcelle VARCHAR(255), id_adresse VARCHAR(255), adresse_ TEXT, id_mutation VARCHAR(255),
+    annee VARCHAR(255), date_mutation VARCHAR(255), nature_mutation VARCHAR(255), valeur_fonciere VARCHAR(255),
+    id_local VARCHAR(255), type_local VARCHAR(255), surface_reelle_bati VARCHAR(255), nombre_pieces_principales VARCHAR(255)
+) ENGINE=InnoDB;
+"""
+
 RELATIONAL_INSERT_QUERIES = [
-  # 1. Populate communes (Unique entity resolution)
+  # 1. Populate communes
   """
-    INSERT INTO commune (code_commune, nom_commune, code_departement, code_postal)
+    INSERT IGNORE INTO commune (code_commune, nom_commune, code_departement, code_postal)
     SELECT DISTINCT code_commune, nom_commune, code_departement, code_postal
     FROM staging_dvf
-    WHERE code_commune IS NOT NULL AND code_commune != ''
-    ON CONFLICT (code_commune) DO NOTHING;
+    WHERE code_commune IS NOT NULL AND code_commune != '';
     """,
   # 2. Populate parcelles
   """
-    INSERT INTO parcelle (id_parcelle, code_commune)
+    INSERT IGNORE INTO parcelle (id_parcelle, code_commune)
     SELECT DISTINCT id_parcelle, code_commune
     FROM staging_dvf
-    WHERE id_parcelle IS NOT NULL AND id_parcelle != ''
-    ON CONFLICT (id_parcelle) DO NOTHING;
+    WHERE id_parcelle IS NOT NULL AND id_parcelle != '';
     """,
-  # 3. Populate mutations (Cast empty string or null matching values natively)
+  # 3. Populate mutations (Convert dates from DD/MM/YYYY string format to Standard MySQL YYYY-MM-DD)
   """
-    INSERT INTO mutation (id_mutation, annee, date_mutation, nature_mutation, valeur_fonciere)
+    INSERT IGNORE INTO mutation (id_mutation, annee, date_mutation, nature_mutation, valeur_fonciere)
     SELECT DISTINCT
         id_mutation,
-        NULLIF(annee, '')::SMALLINT,
-        NULLIF(date_mutation, '')::DATE,
+        NULLIF(annee, ''),
+        STR_TO_DATE(NULLIF(date_mutation, ''), '%d/%m/%Y'),
         nature_mutation,
-        NULLIF(valeur_fonciere, '')::NUMERIC(15,2)
+        NULLIF(valeur_fonciere, '')
     FROM staging_dvf
-    WHERE id_mutation IS NOT NULL AND id_mutation != ''
-    ON CONFLICT (id_mutation) DO NOTHING;
+    WHERE id_mutation IS NOT NULL AND id_mutation != '';
     """,
   # 4. Populate mutation_parcelle link table
   """
-    INSERT INTO mutation_parcelle (id_mutation, id_parcelle)
+    INSERT IGNORE INTO mutation_parcelle (id_mutation, id_parcelle)
     SELECT DISTINCT id_mutation, id_parcelle
     FROM staging_dvf
-    WHERE id_mutation IS NOT NULL AND id_mutation != '' AND id_parcelle IS NOT NULL AND id_parcelle != ''
-    ON CONFLICT (id_mutation, id_parcelle) DO NOTHING;
+    WHERE id_mutation IS NOT NULL AND id_mutation != '' AND id_parcelle IS NOT NULL AND id_parcelle != '';
     """,
   # 5. Populate local entities
   """
-    INSERT INTO local (id_local, type_local, surface_reelle_bati, nombre_pieces_principales, id_parcelle)
+    INSERT IGNORE INTO `local` (id_local, type_local, surface_reelle_bati, nombre_pieces_principales, id_parcelle)
     SELECT DISTINCT
         id_local,
         type_local,
-        NULLIF(surface_reelle_bati, '')::NUMERIC(10,2),
-        NULLIF(nombre_pieces_principales, '')::SMALLINT,
+        NULLIF(surface_reelle_bati, ''),
+        NULLIF(nombre_pieces_principales, ''),
         id_parcelle
     FROM staging_dvf
-    WHERE id_local IS NOT NULL AND id_local != ''
-    ON CONFLICT (id_local) DO NOTHING;
+    WHERE id_local IS NOT NULL AND id_local != '';
     """,
 ]
+
+# --------------------------------------------------------------------------
+# Functions
+# --------------------------------------------------------------------------
 
 
 def init_database(conn):
@@ -137,59 +166,65 @@ def init_database(conn):
   with conn.cursor() as cur:
     print("[INFO] Creating schema tables...")
     cur.execute(SCHEMA_DDL)
+    cur.execute(SCHEMA_DDL_2)
+    cur.execute(SCHEMA_DDL_3)
+    cur.execute(SCHEMA_DDL_4)
+    cur.execute(SCHEMA_DDL_5)
+    cur.execute(SCHEMA_DDL_6)
     print("[INFO] Creating staging schema structure...")
-    cur.execute(STAGING_DDL)
+    cur.execute(STAGING_DDL_DROP)
+    cur.execute(STAGING_DDL_CREATE)
   conn.commit()
 
 
 def load_csv_to_staging(conn, file_path: str):
-  """Streams data using COPY command protocol into unindexed staging table."""
-  print(f"[INFO] Initializing COPY stream for target data file: {file_path}")
-  copy_sql = """
-        COPY staging_dvf (
-            code_commune, nom_commune, code_departement, code_postal,
-            id_parcelle, id_adresse, adresse_, id_mutation,
-            annee, date_mutation, nature_mutation, valeur_fonciere,
-            id_local, type_local, surface_reelle_bati, nombre_pieces_principales
-        ) FROM STDIN WITH (FORMAT csv, HEADER true, DELIMITER ',');
+  """Invokes MySQL's LOAD DATA LOCAL INFILE to stream file contents directly into staging."""
+  print(f"[INFO] Executing high-speed LOAD DATA execution for: {file_path}")
+
+  # Absolute path formatting required by MySQL engine context rules
+  absolute_path = os.path.abspath(file_path).replace("\\", "/")
+
+  load_sql = f"""
+        LOAD DATA LOCAL INFILE '{absolute_path}'
+        INTO TABLE staging_dvf
+        FIELDS TERMINATED BY ','
+        ENCLOSED BY '"'
+        LINES TERMINATED BY '\\n'
+        IGNORE 1 LINES
+        (code_commune, nom_commune, code_departement, code_postal,
+         id_parcelle, id_adresse, adresse_, id_mutation,
+         annee, date_mutation, nature_mutation, valeur_fonciere,
+         id_local, type_local, surface_reelle_bati, nombre_pieces_principales);
     """
   with conn.cursor() as cur:
-    with open(file_path, "r", encoding="utf-8") as f:
-      with cur.copy(copy_sql) as copy:
-        while True:
-          if done_event.is_set():
-            return
-          chunk = f.read(1024 * 1024)  # Read 1MB memory blocks
-          if not chunk:
-            break
-          copy.write(chunk)
+    cur.execute(load_sql)
   conn.commit()
 
 
 def distribute_staging_data(conn):
-  """Executes SQL internal ingestion pipelines."""
+  """Executes the relational insert queries to parse staging contents into target schemas."""
   with conn.cursor() as cur:
     for idx, query in enumerate(RELATIONAL_INSERT_QUERIES, 1):
       if done_event.is_set():
         return
       print(
-        f"[INFO] Executing structural data distribution routine ({idx}/{len(RELATIONAL_INSERT_QUERIES)})..."
+        f"[INFO] Running storage layer transformation routine ({idx}/{len(RELATIONAL_INSERT_QUERIES)})..."
       )
       cur.execute(query)
   conn.commit()
 
 
 def cleanup_staging(conn):
-  """Drops volatile storage components from working context."""
+  """Removes temporary staging elements from the target database."""
   with conn.cursor() as cur:
-    print("[INFO] Clearing volatile staging space...")
+    print("[INFO] Purging staging infrastructure...")
     cur.execute("DROP TABLE IF EXISTS staging_dvf;")
   conn.commit()
 
 
-def fill_db():
+def main():
   try:
-    with psycopg.connect(DB_DSN) as conn:
+    with mysql.connector.connect(**DB_CONFIG) as conn:
       init_database(conn)
 
       for file_name in CSV_FILES:
@@ -200,7 +235,7 @@ def fill_db():
           load_csv_to_staging(conn, file_path)
         else:
           print(
-            f"[WARN] Target path {file_path} does not exist, skipping extraction iteration."
+            f"[WARN] Target path {file_path} does not exist, skipping processing loop."
           )
 
       if not done_event.is_set():
@@ -212,4 +247,5 @@ def fill_db():
     print(f"[CRITICAL ERROR] Pipeline execution halted: {error}")
 
 
-fill_db()
+if __name__ == "__main__":
+  main()
