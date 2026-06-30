@@ -5,13 +5,14 @@ services:
     restart: always
     environment:
       MYSQL_ROOT_PASSWORD: dbrootpwd
-      MYSQL_DATABASE: cinema
+      MYSQL_DATABASE: foncier
       MYSQL_USER: user
       MYSQL_PASSWORD: userpwd
     ports:
-      - "13306:3306"
+      - "3306:3306"
     volumes:
       - mysql_data:/var/lib/mysql
+
   phpmyadmin:
     image: phpmyadmin/phpmyadmin
     container_name: pma
@@ -32,6 +33,9 @@ services:
       - '3000:3000'
     volumes:
       - grafana_data:/var/lib/grafana
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: grafanapwd
 
 volumes:
   mysql_data:
