@@ -1,4 +1,4 @@
-iservices:
+services:
   db:
     image: mysql:latest
     container_name: db
