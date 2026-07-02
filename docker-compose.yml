@@ -1,43 +1,31 @@
 services:
-  db:
-    image: mysql:latest
-    container_name: db
-    restart: always
-    command: --local-infile=1
+  etl:
+    build: .
+    container_name: etl
+    restart: "no"
     environment:
-      MYSQL_ROOT_PASSWORD: dbrootpwd
-      MYSQL_DATABASE: foncier
-      MYSQL_USER: user
-      MYSQL_PASSWORD: userpwd
-    ports:
-      - "3306:3306"
+      DATA_DIR: /data
+      # La construction des index ART (PRIMARY KEY) ne déborde pas sur disque :
+      # dimensionné pour ~16 M de lignes, avec une VM Docker de 8 Go
+      DUCKDB_MEMORY_LIMIT: 8GB
     volumes:
-      - mysql_data:/var/lib/mysql
+      - dvf_data:/data
 
-  phpmyadmin:
-    image: phpmyadmin/phpmyadmin
-    container_name: pma
-    links:
-      - db
-    environment:
-      PMA_HOST: db
-      PMA_PORT: 3306
-      PMA_ARBITRARY: 1
-    restart: always
-    ports:
-      - 8081:80
-
-  grafana:
-    image: grafana/grafana
+  app:
+    build: .
+    container_name: app
+    command: ["streamlit", "run", "app.py", "--server.address=0.0.0.0"]
     restart: unless-stopped
     ports:
-      - '3000:3000'
-    volumes:
-      - grafana_data:/var/lib/grafana
+      - "8501:8501"
     environment:
-      GF_SECURITY_ADMIN_USER: admin
-      GF_SECURITY_ADMIN_PASSWORD: grafanapwd
+      DB_PATH: /data/foncier.db
+    volumes:
+      # Lecture seule : seul le pipeline ELT écrit
+      - dvf_data:/data:ro
+    depends_on:
+      etl:
+        condition: service_completed_successfully
 
 volumes:
-  mysql_data:
-  grafana_data:
+  dvf_data:

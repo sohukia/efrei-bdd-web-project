@@ -1,4 +1,5 @@
 import os.path
+import shutil
 from concurrent.futures import ThreadPoolExecutor
 from threading import Event
 from typing import Iterable
@@ -31,7 +32,6 @@ done_event = Event()
 
 
 def copy_url(client: httpx.Client, task_id: TaskID, url: str, dest_dir: str) -> None:
-  """Download zip from url and extract its text content directly without saving the zip."""
   try:
     filename = url.split("/")[-1] or "archive.zip"
 
@@ -62,7 +62,11 @@ def copy_url(client: httpx.Client, task_id: TaskID, url: str, dest_dir: str) -> 
       with zipfile.ZipFile(temp_zip_path, "r") as z:
         for file_info in z.infolist():
           if file_info.filename.endswith(".txt"):
-            z.extract(file_info, path=dest_dir)
+            target = os.path.join(dest_dir, os.path.basename(file_info.filename))
+            tmp_target = target + ".part"
+            with z.open(file_info) as src, open(tmp_target, "wb") as out:
+              shutil.copyfileobj(src, out)
+            os.replace(tmp_target, target)
             progress.console.log(f"Extracted {file_info.filename} to {dest_dir}")
       os.remove(temp_zip_path)
     else:
