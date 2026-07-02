@@ -1,0 +1,11 @@
+.git
+.venv
+.ruff_cache
+__pycache__
+*.csv
+*.txt
+*.db
+*.duckdb
+README.md
+docker-compose.yml
+Dockerfile
