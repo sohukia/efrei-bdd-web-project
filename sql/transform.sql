@@ -1,12 +1,6 @@
 -- Transformations DuckDB (ELT) : de la table brute raw_dvf (colonnes du fichier
 -- DVF, toutes en VARCHAR) vers les tables analytiques dédupliquées t_*,
 -- exportées ensuite vers MySQL par elt.py.
---
--- Dans l'export open data DVF, « Reference document » et « Identifiant local »
--- sont toujours vides : id_mutation et id_local sont donc synthétisés par MD5.
--- Une mutation est identifiée par (date, n° disposition, valeur, commune) :
--- les lignes d'une vente multi-parcelles partagent ces champs et se regroupent
--- en une seule mutation, ce qui est le regroupement voulu.
 
 CREATE OR REPLACE VIEW dvf_clean AS
 WITH src AS (
@@ -37,8 +31,6 @@ ids AS (
   SELECT
     *,
     dept || comm AS code_commune,
-    -- Identifiant cadastral à 14 caractères :
-    -- département (2) + commune (3) + préfixe (3) + section (2) + n° plan (4)
     CASE
       WHEN dept <> '' AND comm <> '' AND section <> '' AND no_plan <> ''
       THEN dept || comm || prefixe || lpad(section, 2, '0') || lpad(no_plan, 4, '0')
@@ -70,9 +62,6 @@ SELECT
   try_cast(nullif(surface_brute, '') AS DECIMAL(10,2)) AS surface_reelle_bati,
   try_cast(nullif(pieces_brutes, '') AS SMALLINT) AS nombre_pieces_principales
 FROM ids;
-
--- Une ligne par clé primaire : any_value() arbitre les rares divergences
--- d'attributs, comme le faisait INSERT IGNORE dans l'ancien staging MySQL.
 
 CREATE OR REPLACE TABLE t_commune AS
 SELECT

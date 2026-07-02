@@ -41,6 +41,14 @@ CREATE TABLE IF NOT EXISTS "local" (
     id_parcelle                 VARCHAR(20)   -- référence parcelle(id_parcelle)
 );
 
+-- Centres géographiques des communes (source geo.api.gouv.fr, code INSEE
+-- = code_commune). Remplie par elt.py, sert à la carte du dashboard.
+CREATE TABLE IF NOT EXISTS commune_geo (
+    code_commune    VARCHAR(10) PRIMARY KEY,
+    latitude        DOUBLE,
+    longitude       DOUBLE
+);
+
 -- Fichiers sources déjà ingérés : permet de relancer la stack sans tout recharger.
 CREATE TABLE IF NOT EXISTS etl_file (
     filename    VARCHAR(255) PRIMARY KEY,
