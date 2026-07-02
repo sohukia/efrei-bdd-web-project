@@ -57,7 +57,7 @@ st.title("Valeurs foncières (2022–2025)")
 if not DB_PATH.exists():
   st.info(
     "La base de données n'est pas encore publiée : l'ingestion est "
-    "probablement en cours (`docker compose logs -f etl`). "
+    "probablement en cours (`docker compose logs -f elt`). "
     "Rechargez la page dans quelques instants."
   )
   st.stop()
@@ -192,7 +192,9 @@ if departement is None:
         )
       else:
         feature["properties"].update(
-          ventes_fmt="0", prix_fmt="–", prix_m2_fmt="–",
+          ventes_fmt="0",
+          prix_fmt="–",
+          prix_m2_fmt="–",
           fill_color=[210, 210, 210, 90],
         )
 
@@ -250,7 +252,7 @@ if departement is None:
   else:
     st.info(
       "Contours des départements indisponibles : relancez "
-      "`docker compose run --rm etl` pour les télécharger."
+      "`docker compose run --rm elt` pour les télécharger."
     )
 else:
   st.subheader(f"Ventes par commune (département {departement})")
@@ -261,8 +263,7 @@ else:
   )
   if communes.empty:
     st.info(
-      "Coordonnées des communes indisponibles : relancez "
-      "`docker compose run --rm etl`."
+      "Coordonnées des communes indisponibles : relancez `docker compose run --rm elt`."
     )
   else:
     communes["ventes_fmt"] = communes["nb_ventes"].map(fr_int)

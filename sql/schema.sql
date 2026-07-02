@@ -50,7 +50,7 @@ CREATE TABLE IF NOT EXISTS commune_geo (
 );
 
 -- Fichiers sources déjà ingérés : permet de relancer la stack sans tout recharger.
-CREATE TABLE IF NOT EXISTS etl_file (
+CREATE TABLE IF NOT EXISTS elt_file (
     filename    VARCHAR(255) PRIMARY KEY,
     loaded_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

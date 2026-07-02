@@ -20,5 +20,5 @@ ENV PATH="/app/.venv/bin:$PATH" \
 
 EXPOSE 8501
 
-# Service etl ; le service app surcharge avec `streamlit run app.py`
+# Service elt ; le service app surcharge avec `streamlit run app.py`
 CMD ["python", "elt.py"]

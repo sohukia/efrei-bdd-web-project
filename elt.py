@@ -122,7 +122,7 @@ def prepare_work_db() -> set[str]:
 
   with duckdb.connect(str(WORK_DB)) as con:
     run_sql_file(con, "schema.sql")
-    return {row[0] for row in con.execute("SELECT filename FROM etl_file;").fetchall()}
+    return {row[0] for row in con.execute("SELECT filename FROM elt_file;").fetchall()}
 
 
 def find_source_txt(year: int) -> Path | None:
@@ -185,7 +185,7 @@ def ingest_geo(already_loaded: set[str]):
         FROM read_json_auto('{geo_file}')
         WHERE centre IS NOT NULL
       """)
-      con.execute("INSERT OR IGNORE INTO etl_file (filename) VALUES (?)", [marker])
+      con.execute("INSERT OR IGNORE INTO elt_file (filename) VALUES (?)", [marker])
     count = con.execute("SELECT COUNT(*) FROM commune_geo").fetchone()[0]
   log(f"commune_geo: {count:,} communes geolocated")
 
@@ -230,7 +230,7 @@ def ingest(txt_paths: dict[int, Path]):
       log(f"{table}: {count:,} rows total ({time.monotonic() - started:.1f}s)")
     con.execute(
       """
-      INSERT OR IGNORE INTO foncier.etl_file (filename)
+      INSERT OR IGNORE INTO foncier.elt_file (filename)
       SELECT unnest($names)
       """,
       {"names": [f"valeursfoncieres-{year}.txt" for year in txt_paths]},

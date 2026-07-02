@@ -1,7 +1,7 @@
 services:
-  etl:
+  elt:
     build: .
-    container_name: etl
+    container_name: elt
     restart: "no"
     environment:
       DATA_DIR: /data
@@ -24,7 +24,7 @@ services:
       # Lecture seule : seul le pipeline ELT écrit
       - dvf_data:/data
     depends_on:
-      etl:
+      elt:
         condition: service_completed_successfully
 
 volumes:

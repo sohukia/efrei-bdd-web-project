@@ -25,18 +25,20 @@ T  sql/transform.sql      → tables analytiques dédupliquées (SQL DuckDB)
 
 ```bash
 git clone https://github.com/sohukia/efrei-bdd-web-project.git && cd efrei-bdd-web-project
+```
+```bash
 docker compose up -d --build
 ```
-
+> Ouvrez un deuxième terminal et lancez `docker compose logs -f elt`
 C'est tout. La stack démarre dans cet ordre :
 
-1. **etl** télécharge, traite et enregistre les données dans la DB
+1. **elt** télécharge, traite et enregistre les données dans la DB
 2. **app** (Streamlit) — démarre une fois l'ingestion terminée et sert le
    dashboard sur <http://localhost:8501>.
 
 > Le premier lancement télécharge ~500 Mo d'archives ; l'ingestion des
 > 15,7 M de lignes ne prend ensuite que quelques dizaines de secondes.
-> Suivez la progression avec `docker compose logs -f etl`.
+> Suivez la progression avec `docker compose logs -f elt`.
 
 ## Organisation du code
 
@@ -55,7 +57,7 @@ C'est tout. La stack démarre dans cet ordre :
 ## Relancer l'ingestion
 
 ```bash
-docker compose run --rm etl     # n'ingère que les années manquantes
+docker compose run --rm elt     # n'ingère que les années manquantes
 ```
 
 Pour forcer un rechargement complet :
