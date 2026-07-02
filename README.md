@@ -1,5 +1,10 @@
 # Projet de Base de Donnée et Web
 
+## Participants du projet
+- Marc Cambon
+- Alexandre Dauvel
+- Mayssaloon Bilal
+- Brewen Digonnaux-Lanrelec
 
 Télécharge data.gouv.fr, les transfère dans DuckDB, transforme en SQL, peuple DuckDB avec les données.s
 Dashboard web Streamlit.
