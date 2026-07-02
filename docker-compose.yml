@@ -22,7 +22,7 @@ services:
       DB_PATH: /data/foncier.db
     volumes:
       # Lecture seule : seul le pipeline ELT écrit
-      - dvf_data:/data:ro
+      - dvf_data:/data
     depends_on:
       etl:
         condition: service_completed_successfully
